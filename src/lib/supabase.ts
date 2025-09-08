@@ -1,0 +1,42 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase environment variables')
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabase) {
+  throw new Error('Failed to connect supabase client');
+} else {
+  console.log('Supabase Client connected successfully');
+}
+
+// Example usage (remove or move this to a function/module as needed):
+// const { data, error } = await supabase.from('companion').select('*')
+export type User = {
+  id: string
+  email: string
+  created_at: string
+}
+
+export type EmotionEntry = {
+  id: string
+  user_id: string
+  message: string
+  detected_emotion: string
+  confidence: number
+  created_at: string
+}
+
+export type Recommendation = {
+  id: string
+  user_id: string
+  type: 'song' | 'book' | 'movie'
+  title: string
+  description: string
+  emotion_context: string
+  created_at: string
+}
