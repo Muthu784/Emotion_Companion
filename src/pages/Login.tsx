@@ -1,18 +1,20 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Heart, Mail, Lock } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { useNavigate } from 'react-router-dom'
-import { useToast } from '@/hooks/use-toast'
+import { authApi } from '@/lib/auth-api'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
+  const [needsConfirmation, setNeedsConfirmation] = useState(false)
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -21,32 +23,78 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
+      const trimmedEmail = email.trim()
+      const trimmedPassword = password.trim()
+
+      if (trimmedPassword.length < 6) {
+        toast({
+          title: "Weak Password",
+          description: "Password must be at least 6 characters.",
+          variant: "destructive"
         })
-        if (error) throw error
+        return
+      }
+
+      if (isSignUp) {
+        const { user, error } = await authApi.signup(trimmedEmail, trimmedPassword)
+
+        if (error || !user) {
+          toast({
+            title: "Authentication Error",
+            description: (error && error.message) || 'Failed to create account',
+            variant: "destructive"
+          })
+          return
+        }
+
+        setNeedsConfirmation(true)
         toast({
           title: "Account created!",
-          description: "Check your email to verify your account.",
+          description: "Please check your email to verify your account.",
         })
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-        if (error) throw error
+        const { error } = await authApi.login(trimmedEmail, trimmedPassword)
+
+        if (error) {
+          if ('isEmailNotConfirmed' in error) {
+            setNeedsConfirmation(true)
+            toast({
+              title: "Email Not Confirmed",
+              description: 'Please confirm your email before logging in',
+              variant: "destructive"
+            })
+            return
+          }
+          toast({
+            title: "Authentication Error",
+            description: error.message || 'Invalid email or password',
+            variant: "destructive"
+          })
+          return
+        }
+
         navigate('/dashboard')
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      })
+    } catch (_error: any) {
+      // Unexpected error fallback already handled in branches above
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleResendConfirmation = async () => {
+    const { error } = await authApi.resendConfirmationEmail(email)
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to resend confirmation email",
+        variant: "destructive"
+      })
+    } else {
+      toast({
+        title: "Email Sent",
+        description: "Please check your inbox for the confirmation link",
+      })
     }
   }
 
@@ -100,6 +148,8 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    minLength={6}
+                    autoComplete="current-password"
                     className="pl-10 glass border-white/20 text-white placeholder-white/50"
                   />
                 </div>
@@ -115,6 +165,22 @@ export default function Login() {
                 {isLoading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
               </Button>
             </form>
+
+            {needsConfirmation && (
+              <div className="mt-4 text-center">
+                <p className="text-white/80 mb-2">
+                  Please confirm your email address before logging in
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResendConfirmation}
+                  className="text-white"
+                >
+                  Resend Confirmation Email
+                </Button>
+              </div>
+            )}
 
             <div className="mt-6 text-center">
               <button
