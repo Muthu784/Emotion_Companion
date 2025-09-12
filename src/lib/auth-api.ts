@@ -1,8 +1,10 @@
 import { supabase } from './supabase'
-import { AuthError, Session, User, AuthApiError } from '@supabase/supabase-js'
+import { AuthError, Session, User } from '@supabase/supabase-js'
 
 interface AuthResponse {
   user: User | null;
+  email?: string | null;
+  password?: string | null;
   session: Session | null;
   error: AuthError | any | null;
 }
@@ -73,7 +75,7 @@ export const authApi = {
     }
   },
 
-  async signup(email: string, password: string): Promise<AuthResponse> {
+  async signup(email: string, password: string, emailRedirectTo: any, p0: string): Promise<AuthResponse> {
     try {
       // Validate & normalize
       if (!email || !password) {

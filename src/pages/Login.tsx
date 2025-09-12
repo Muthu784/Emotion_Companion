@@ -26,6 +26,14 @@ export default function Login() {
       const trimmedEmail = email.trim()
       const trimmedPassword = password.trim()
 
+      if (!trimmedEmail || !trimmedPassword) {
+        toast({
+          title: "Missing Crendentials",  
+          description: "Please provide both email and password",
+          variant: "destructive"
+        })
+      }
+
       if (trimmedPassword.length < 6) {
         toast({
           title: "Weak Password",
@@ -36,8 +44,12 @@ export default function Login() {
       }
 
       if (isSignUp) {
-        const { user, error } = await authApi.signup(trimmedEmail, trimmedPassword)
-
+        const { user, error } = await authApi.signup(
+          trimmedEmail, 
+          trimmedPassword, 
+          { emailRedirectTo: `${window.location.origin}` },
+          ''
+        );
         if (error || !user) {
           toast({
             title: "Authentication Error",
@@ -98,6 +110,7 @@ export default function Login() {
     }
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
@@ -128,7 +141,7 @@ export default function Login() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="your@email.com"
+                    placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -144,7 +157,7 @@ export default function Login() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="••••••••"
+                    placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required

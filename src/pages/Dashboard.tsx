@@ -5,8 +5,18 @@ import { Button } from '@/components/ui/button'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { Heart, MessageCircle, Sparkles, TrendingUp, Calendar } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { EmotionEntry } from '@/lib/supabase'
 import { getEmotionColor } from '@/lib/emotion-detection'
+
+// Define the EmotionEntry type locally if not exported from supabase
+type EmotionEntry = {
+  id: string
+  user_id: string
+  detected_emotion: string
+  message: string
+  created_at: string
+}
+
+
 
 export default function Dashboard() {
   const [emotionData, setEmotionData] = useState<any[]>([])
