@@ -14,27 +14,52 @@ npm i
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+EmotiChat is an AI-powered emotional wellness companion application. Here's a detailed breakdown:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Core Features
+1. **Emotion Detection & Analysis**
+- Uses AI to analyze text and detect emotions from user conversations
+- Supports multiple emotion types: joy, love, sadness, anger, fear, and surprise
+- Real-time emotion analysis during chats
 
-**Use GitHub Codespaces**
+2. **Interactive Chat Interface**
+- AI-powered conversational interface
+- Contextual responses based on detected emotions
+- Real-time emotion feedback and analysis
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+3. **Emotion Dashboard**
+- Visual representation of emotional patterns
+- Charts showing emotion distribution
+- Recent activity tracking
+- Summary statistics of emotional states
 
-## What technologies are used for this project?
+4. **Personalized Recommendations**
+- Mood-based content recommendations including:
+  - Songs
+  - Books
+  - Movies
+- Recommendations tailored to user's emotional state
 
-This project is built with:
+### Technical Stack
+- **Frontend**: React with TypeScript
+- **UI Framework**: Tailwind CSS with shadcn/ui components
+- **Authentication**: Supabase Auth
+- **Database**: Supabase
+- **AI/ML**: Hugging Face transformers for emotion detection
+- **Build Tool**: Vite
+- **Routing**: React Router
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Design System
+- Custom emotion-based color system
+- Gradient themes for different emotional states
+- Responsive design for mobile and desktop
+- Glass-morphism UI effects
+- Animated components and transitions
 
+### Security & Privacy
+- Protected routes requiring authentication
+- Secure user authentication flow
+- Email verification system
+- Privacy-focused design
+
+This application aims to help users track, understand, and manage their emotions while providing personalized content recommendations based on their emotional state. The UI is modern and user-friendly, with a focus on accessibility and responsive design.
