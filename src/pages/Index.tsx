@@ -2,21 +2,21 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Heart, MessageCircle, BarChart3, Sparkles, ArrowRight } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+
 
 const Index = () => {
   const navigate = useNavigate()
 
-  useEffect(() => {
-    // Check if user is already authenticated
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        navigate('/dashboard')
-      }
-    }
-    checkUser()
-  }, [navigate])
+  // useEffect(() => {
+  //   // Check if user is already authenticated
+  //   const checkUser = async () => {
+  //     const { data: { user } } = await supabase.auth.getUser()
+  //     if (user) {
+  //       navigate('/dashboard')
+  //     }
+  //   }
+  //   checkUser()
+  // }, [navigate])
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">

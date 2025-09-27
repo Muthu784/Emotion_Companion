@@ -6,7 +6,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Send, Bot, User, Heart, Sparkles } from 'lucide-react'
 import { detectEmotion, getEmotionColor, getEmotionRecommendations, EmotionResult } from '@/lib/emotion-detection'
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 
 interface ChatMessage {
@@ -42,16 +43,10 @@ export default function Chat() {
 
   const saveEmotionEntry = async (message: string, emotion: EmotionResult) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      await supabase
-        .from('emotion_entries')
-        .insert({
-          user_id: user.id,
-          message,
-          detected_emotion: emotion.emotion,
-          confidence: emotion.confidence
+      await api.emotions.addEmotion({
+        emotion: emotion.emotion,
+        intensity: emotion.confidence,
+        context: message
         })
     } catch (error) {
       console.error('Error saving emotion entry:', error)

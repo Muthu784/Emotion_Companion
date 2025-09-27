@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { authApi } from '@/lib/api/auth'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Heart, Mail, Lock } from 'lucide-react'
-import { authApi } from '@/lib/auth-api'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -44,16 +43,11 @@ export default function Login() {
       }
 
       if (isSignUp) {
-        const { user, error } = await authApi.signup(
-          trimmedEmail, 
-          trimmedPassword, 
-          { emailRedirectTo: `${window.location.origin}` },
-          ''
-        );
-        if (error || !user) {
+        const { error } = await authApi.register(trimmedEmail, trimmedPassword);
+        if (error) {
           toast({
             title: "Authentication Error",
-            description: (error && error.message) || 'Failed to create account',
+            description: error || 'Failed to create account',
             variant: "destructive"
           })
           return
@@ -68,18 +62,9 @@ export default function Login() {
         const { error } = await authApi.login(trimmedEmail, trimmedPassword)
 
         if (error) {
-          if ('isEmailNotConfirmed' in error) {
-            setNeedsConfirmation(true)
-            toast({
-              title: "Email Not Confirmed",
-              description: 'Please confirm your email before logging in',
-              variant: "destructive"
-            })
-            return
-          }
           toast({
             title: "Authentication Error",
-            description: error.message || 'Invalid email or password',
+            description: error || 'Invalid email or password',
             variant: "destructive"
           })
           return
@@ -94,21 +79,6 @@ export default function Login() {
     }
   }
 
-  const handleResendConfirmation = async () => {
-    const { error } = await authApi.resendConfirmationEmail(email)
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to resend confirmation email",
-        variant: "destructive"
-      })
-    } else {
-      toast({
-        title: "Email Sent",
-        description: "Please check your inbox for the confirmation link",
-      })
-    }
-  }
 
 
   return (
@@ -182,16 +152,8 @@ export default function Login() {
             {needsConfirmation && (
               <div className="mt-4 text-center">
                 <p className="text-white/80 mb-2">
-                  Please confirm your email address before logging in
+                  Please check your email for verification instructions
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleResendConfirmation}
-                  className="text-white"
-                >
-                  Resend Confirmation Email
-                </Button>
               </div>
             )}
 

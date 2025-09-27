@@ -4,16 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { Heart, MessageCircle, Sparkles, TrendingUp, Calendar } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
 import { getEmotionColor } from '@/lib/emotion-detection'
 
 // Define the EmotionEntry type locally if not exported from supabase
-type EmotionEntry = {
-  id: string
-  user_id: string
-  detected_emotion: string
-  message: string
-  created_at: string
+interface EmotionEntry {
+  id: string;
+  userId: string;
+  emotion: string;
+  intensity: number;
+  timestamp: string;
+  context?: string;
 }
 
 
@@ -29,23 +31,14 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Get emotion entries from last 7 days
-      const { data: entries } = await supabase
-        .from('emotion_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order('created_at', { ascending: false })
+      const entries = await api.emotions.getHistory()
 
       if (entries) {
         setRecentEntries(entries.slice(0, 5))
         
         // Process data for charts
         const emotionCounts = entries.reduce((acc: any, entry) => {
-          acc[entry.detected_emotion] = (acc[entry.detected_emotion] || 0) + 1
+          acc[entry.emotion] = (acc[entry.emotion] || 0) + 1
           return acc
         }, {})
 
@@ -193,13 +186,13 @@ export default function Dashboard() {
                 {recentEntries.length > 0 ? (
                   recentEntries.map((entry) => (
                     <div key={entry.id} className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full bg-${getEmotionColor(entry.detected_emotion as any)}`} />
+                      <div className={`w-3 h-3 rounded-full bg-${getEmotionColor(entry.emotion as any)}`} />
                       <div className="flex-1">
                         <p className="text-sm text-card-foreground capitalize font-medium">
-                          {entry.detected_emotion}
+                          {entry.emotion}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {entry.message}
+                          {entry.context || `Intensity: ${entry.intensity}`}
                         </p>
                       </div>
                     </div>

@@ -1,15 +1,19 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Heart, MessageCircle, BarChart3, Sparkles, LogOut } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 
 export function Navigation() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
+  // const handleSignOut = async () => {
+  //   await supabase.auth.signOut()
+  //   navigate('/login')
+  // }
+
+  const handleSignOut = () => {
+    // Implement sign-out logic here, e.g., clear auth tokens, call API, etc.
     navigate('/login')
   }
 

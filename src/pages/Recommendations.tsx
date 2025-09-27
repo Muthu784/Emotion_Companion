@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Music, Book, Film, Heart, Sparkles, RefreshCw } from 'lucide-react'
 import { getEmotionRecommendations, getEmotionColor } from '@/lib/emotion-detection'
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
 
 interface EmotionSummary {
   emotion: string
@@ -15,6 +16,7 @@ interface EmotionSummary {
 }
 
 export default function Recommendations() {
+  const { user } = useAuth()
   const [emotionSummary, setEmotionSummary] = useState<EmotionSummary[]>([])
   const [selectedEmotion, setSelectedEmotion] = useState<string>('joy')
   const [loading, setLoading] = useState(true)
@@ -25,19 +27,11 @@ export default function Recommendations() {
 
   const loadEmotionSummary = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Get recent emotion entries
-      const { data: entries } = await supabase
-        .from('emotion_entries')
-        .select('detected_emotion')
-        .eq('user_id', user.id)
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      const entries = await api.emotions.getHistory()
 
       if (entries && entries.length > 0) {
         const emotionCounts = entries.reduce((acc: any, entry) => {
-          acc[entry.detected_emotion] = (acc[entry.detected_emotion] || 0) + 1
+          acc[entry.emotion] = (acc[entry.emotion] || 0) + 1
           return acc
         }, {})
 
