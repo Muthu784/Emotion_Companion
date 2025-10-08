@@ -11,6 +11,7 @@ import { Heart, Mail, Lock } from 'lucide-react'
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [needsConfirmation, setNeedsConfirmation] = useState(false)
@@ -24,6 +25,7 @@ export default function Login() {
     try {
       const trimmedEmail = email.trim()
       const trimmedPassword = password.trim()
+  const trimmedName = name.trim()
 
       if (!trimmedEmail || !trimmedPassword) {
         toast({
@@ -31,6 +33,16 @@ export default function Login() {
           description: "Please provide both email and password",
           variant: "destructive"
         })
+        return
+      }
+
+      if (isSignUp && !trimmedName) {
+        toast({
+          title: "Missing name",
+          description: "Please provide a display name for your account",
+          variant: "destructive",
+        })
+        return
       }
 
       if (trimmedPassword.length < 6) {
@@ -43,7 +55,7 @@ export default function Login() {
       }
 
       if (isSignUp) {
-        const { error } = await authApi.register(trimmedEmail, trimmedPassword);
+        const { error } = await authApi.register(trimmedEmail, trimmedPassword, trimmedName);
         if (error) {
           toast({
             title: "Authentication Error",
@@ -119,6 +131,24 @@ export default function Login() {
                   />
                 </div>
               </div>
+
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-white">Name</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 w-4 h-4 text-white/50" />
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Display name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required={isSignUp}
+                      className="pl-10 glass border-white/20 text-white placeholder-white/50"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-white">Password</Label>
