@@ -14,10 +14,43 @@ export interface AuthResponse {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+// Helper to check if error is a network error
+const isNetworkError = (error: any) => {
+  return (
+    !error.response && 
+    error.code === 'ERR_NETWORK' || 
+    error.message?.includes('Network Error') ||
+    error.code === 'ERR_CONNECTION_REFUSED'
+  );
+};
+
+// Helper to format error messages
+const getErrorMessage = (error: any) => {
+  if (isNetworkError(error)) {
+    return 'Unable to connect to the server. Please check your internet connection and try again.';
+  }
+  return error?.response?.data?.message || 'An unexpected error occurred';
+};
+
 export const authApi = {
   async login(email: string, password: string): Promise<AuthResponse> {
     try {
       console.log('Sending login request with:', { email, password: '[HIDDEN]' });
+      
+      // Try to ping the server first to give a better error message
+      try {
+        await axios.get(`${API_URL}/health`, { timeout: 3000 });
+      } catch (pingError) {
+        if (isNetworkError(pingError)) {
+          console.error('Server unreachable:', pingError);
+          return {
+            user: null,
+            token: null,
+            error: 'Unable to connect to the server. Please ensure the backend server is running on port 5000.'
+          };
+        }
+      }
+
       const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password,
@@ -32,8 +65,18 @@ export const authApi = {
         error: null,
       };
     } catch (error: any) {
-      console.error('auth.login error:', error?.response?.data || error);
+      console.error('auth.login error:', error);
       
+      // Handle connection/network errors
+      if (isNetworkError(error)) {
+        return {
+          user: null,
+          token: null,
+          error: getErrorMessage(error)
+        };
+      }
+      
+      // Handle API errors
       const status = error?.response?.status;
       const message = error?.response?.data?.message || 'An error occurred during login';
 
@@ -118,6 +161,16 @@ export const authApi = {
       }
       
       console.log('getCurrentUser: token found, attempting to fetch user...');
+      
+      try {
+        // Quick health check first
+        // await axios.get(`${API_URL}/health`, { timeout: 2000 });
+      } catch (pingError) {
+        if (isNetworkError(pingError)) {
+          console.error('Server unreachable during getCurrentUser:', pingError);
+          return null;
+        }
+      }
       
       const response = await axios.get(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },

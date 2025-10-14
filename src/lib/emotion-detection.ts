@@ -1,6 +1,10 @@
-import { pipeline } from '@huggingface/transformers'
+import { api } from './api'
 
-let emotionClassifier: any = null
+export interface EmotionAPIResponse {
+  emotion: EmotionType
+  confidence: number
+  scores: Array<{ label: string; score: number }>
+}
 
 export const emotionLabels = {
   joy: 'joy',
@@ -19,39 +23,18 @@ export interface EmotionResult {
   allScores: Array<{ label: string; score: number }>
 }
 
-export async function initializeEmotionDetection() {
-  if (!emotionClassifier) {
-    try {
-      emotionClassifier = await pipeline(
-        'text-classification',
-        'j-hartmann/emotion-english-distilroberta-base',
-        { device: 'webgpu' }
-      )
-    } catch (error) {
-      console.log('WebGPU not available, falling back to CPU')
-      emotionClassifier = await pipeline(
-        'text-classification', 
-        'j-hartmann/emotion-english-distilroberta-base'
-      )
-    }
-  }
-  return emotionClassifier
-}
-
 export async function detectEmotion(text: string): Promise<EmotionResult> {
-  const classifier = await initializeEmotionDetection()
-  const results = await classifier(text)
-  
-  const topResult = results[0]
-  const emotion = topResult.label.toLowerCase() as EmotionType
-  
-  return {
-    emotion,
-    confidence: topResult.score,
-    allScores: results.map((result: any) => ({
-      label: result.label.toLowerCase(),
-      score: result.score
-    }))
+  try {
+    const response = await api.emotions.analyze(text)
+    
+    return {
+      emotion: response.emotion as EmotionType,
+      confidence: response.confidence,
+      allScores: response.scores
+    }
+  } catch (error: any) {
+    console.error('Error detecting emotion:', error?.response?.data || error)
+    throw new Error('Failed to analyze emotion. Please try again.')
   }
 }
 
