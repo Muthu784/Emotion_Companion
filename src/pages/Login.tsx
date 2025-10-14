@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/lib/api/auth'
+import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,7 @@ export default function Login() {
   const [needsConfirmation, setNeedsConfirmation] = useState(false)
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { login, register } = useAuth()
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,7 +60,7 @@ export default function Login() {
       }
 
       if (isSignUp) {
-        const { error } = await authApi.register(trimmedEmail, trimmedPassword, trimmedUsername);
+        const { error } = await register(trimmedEmail, trimmedPassword, trimmedUsername);
         if (error) {
           toast({
             title: "Authentication Error",
@@ -79,7 +81,7 @@ export default function Login() {
         setUsername('')
         setPassword('')
       } else {
-        const { error } = await authApi.login(trimmedEmail, trimmedPassword)
+        const { error } = await login(trimmedEmail, trimmedPassword)
 
         if (error) {
           toast({

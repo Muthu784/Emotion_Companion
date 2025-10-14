@@ -19,7 +19,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    checkUser();
+    // Only check current user if a token exists in localStorage. This avoids
+    // sending an unauthorized request (401) before the user logs in.
+    const token = localStorage.getItem('token')
+    const hasToken = typeof token === 'string' && token.trim() !== '' && token !== 'null' && token !== 'undefined'
+    if (hasToken) checkUser();
   }, []);
 
   async function checkUser() {

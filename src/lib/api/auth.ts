@@ -130,12 +130,20 @@ export const authApi = {
     } catch (err: any) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      
-      console.error('getCurrentUser: failed:', {
-        status,
-        data,
-        message: err.message
-      });
+
+      // If unauthorized, clear stale token so we don't keep retrying with invalid creds
+      if (status === 401) {
+        console.debug('getCurrentUser: unauthorized (401) - clearing token')
+        try { localStorage.removeItem('token') } catch (e) { /* ignore */ }
+        return null
+      }
+
+      // Server error — keep as error for visibility. Other statuses we log as debug.
+      if (status === 500) {
+        console.error('getCurrentUser: server error (500):', data || err.message)
+      } else {
+        console.debug('getCurrentUser: failed:', { status, data, message: err.message })
+      }
 
       return null;
     }
