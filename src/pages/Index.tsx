@@ -14,7 +14,7 @@ const Index: React.FC = () => {
         <Heart className="w-20 h-20 mx-auto text-white animate-emotion-pulse mb-8" />
         
         <h1 className="text-6xl md:text-8xl font-bold text-white mb-6">
-          EmotiChat
+          EmotionChat
         </h1>
         
         <p className="text-xl md:text-2xl text-white/80 mb-8 max-w-2xl mx-auto">

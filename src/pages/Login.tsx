@@ -12,7 +12,7 @@ import { Heart, Mail, Lock, User } from 'lucide-react'
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [username, setUsername] = useState('') // Changed from 'name' to 'username'
+  const [username, setUsername] = useState('') 
   const [isLoading, setIsLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [needsConfirmation, setNeedsConfirmation] = useState(false)
@@ -27,7 +27,7 @@ export default function Login() {
     try {
       const trimmedEmail = email.trim()
       const trimmedPassword = password.trim()
-      const trimmedUsername = username.trim() // Changed from name to username
+      const trimmedUsername = username.trim() 
 
       if (!trimmedEmail || !trimmedPassword) {
         toast({
@@ -41,8 +41,8 @@ export default function Login() {
 
       if (isSignUp && !trimmedUsername) {
         toast({
-          title: "Missing username", // Changed from "name"
-          description: "Please provide a username for your account", // Changed from "display name"
+          title: "Missing username", 
+          description: "Please provide a username for your account", 
           variant: "destructive",
         })
         setIsLoading(false)
@@ -122,7 +122,7 @@ export default function Login() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <Heart className="w-16 h-16 mx-auto text-white animate-emotion-pulse mb-4" />
-          <h1 className="text-4xl font-bold text-white mb-2">EmotiChat</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">EmotionChat</h1>
           <p className="text-white/80">Your AI-powered emotional wellness companion</p>
         </div>
 
