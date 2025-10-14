@@ -2,21 +2,11 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Heart, MessageCircle, BarChart3, Sparkles, ArrowRight } from 'lucide-react'
+import { useAuth } from '../hooks/use-auth';
 
-
-const Index = () => {
-  const navigate = useNavigate()
-
-  // useEffect(() => {
-  //   // Check if user is already authenticated
-  //   const checkUser = async () => {
-  //     const { data: { user } } = await supabase.auth.getUser()
-  //     if (user) {
-  //       navigate('/dashboard')
-  //     }
-  //   }
-  //   checkUser()
-  // }, [navigate])
+const Index: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">

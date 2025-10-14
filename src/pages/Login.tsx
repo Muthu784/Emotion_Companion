@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Heart, Mail, Lock } from 'lucide-react'
+import { Heart, Mail, Lock, User } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
+  const [username, setUsername] = useState('') // Changed from 'name' to 'username'
   const [isLoading, setIsLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [needsConfirmation, setNeedsConfirmation] = useState(false)
@@ -25,23 +25,25 @@ export default function Login() {
     try {
       const trimmedEmail = email.trim()
       const trimmedPassword = password.trim()
-  const trimmedName = name.trim()
+      const trimmedUsername = username.trim() // Changed from name to username
 
       if (!trimmedEmail || !trimmedPassword) {
         toast({
-          title: "Missing Crendentials",  
+          title: "Missing Credentials",  
           description: "Please provide both email and password",
           variant: "destructive"
         })
+        setIsLoading(false)
         return
       }
 
-      if (isSignUp && !trimmedName) {
+      if (isSignUp && !trimmedUsername) {
         toast({
-          title: "Missing name",
-          description: "Please provide a display name for your account",
+          title: "Missing username", // Changed from "name"
+          description: "Please provide a username for your account", // Changed from "display name"
           variant: "destructive",
         })
+        setIsLoading(false)
         return
       }
 
@@ -51,25 +53,31 @@ export default function Login() {
           description: "Password must be at least 6 characters.",
           variant: "destructive"
         })
+        setIsLoading(false)
         return
       }
 
       if (isSignUp) {
-        const { error } = await authApi.register(trimmedEmail, trimmedPassword, trimmedName);
+        const { error } = await authApi.register(trimmedEmail, trimmedPassword, trimmedUsername);
         if (error) {
           toast({
             title: "Authentication Error",
             description: error || 'Failed to create account',
             variant: "destructive"
           })
+          setIsLoading(false)
           return
         }
 
         setNeedsConfirmation(true)
         toast({
           title: "Account created!",
-          description: "Please check your email to verify your account.",
+          description: "Your account has been created successfully.",
         })
+        // Auto-switch to login after successful registration
+        setIsSignUp(false)
+        setUsername('')
+        setPassword('')
       } else {
         const { error } = await authApi.login(trimmedEmail, trimmedPassword)
 
@@ -79,19 +87,33 @@ export default function Login() {
             description: error || 'Invalid email or password',
             variant: "destructive"
           })
+          setIsLoading(false)
           return
         }
 
+        toast({
+          title: "Welcome back!",
+          description: "You have successfully signed in.",
+        })
         navigate('/dashboard')
       }
-    } catch (_error: any) {
-      // Unexpected error fallback already handled in branches above
+    } catch (error: any) {
+      console.error('Unexpected error in handleAuth:', error)
+      toast({
+        title: "Unexpected Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
-
+  const toggleAuthMode = () => {
+    setIsSignUp(!isSignUp)
+    setUsername('')
+    setNeedsConfirmation(false)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
@@ -128,23 +150,25 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="pl-10 glass border-white/20 text-white placeholder-white/50"
+                    disabled={isLoading}
                   />
                 </div>
               </div>
 
               {isSignUp && (
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-white">Name</Label>
+                  <Label htmlFor="username" className="text-white">Username</Label> {/* Changed from Name */}
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 w-4 h-4 text-white/50" />
+                    <User className="absolute left-3 top-3 w-4 h-4 text-white/50" /> {/* Changed icon */}
                     <Input
-                      id="name"
+                      id="username" // Changed from name
                       type="text"
-                      placeholder="Display name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Choose a username" // Changed placeholder
+                      value={username} // Changed from name
+                      onChange={(e) => setUsername(e.target.value)} // Changed from setName
                       required={isSignUp}
                       className="pl-10 glass border-white/20 text-white placeholder-white/50"
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
@@ -164,6 +188,7 @@ export default function Login() {
                     minLength={6}
                     autoComplete="current-password"
                     className="pl-10 glass border-white/20 text-white placeholder-white/50"
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -180,9 +205,9 @@ export default function Login() {
             </form>
 
             {needsConfirmation && (
-              <div className="mt-4 text-center">
-                <p className="text-white/80 mb-2">
-                  Please check your email for verification instructions
+              <div className="mt-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-center">
+                <p className="text-green-300 text-sm">
+                  Account created successfully! You can now sign in.
                 </p>
               </div>
             )}
@@ -190,8 +215,9 @@ export default function Login() {
             <div className="mt-6 text-center">
               <button
                 type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-white/80 hover:text-white transition-emotion"
+                onClick={toggleAuthMode}
+                className="text-white/80 hover:text-white transition-emotion disabled:opacity-50"
+                disabled={isLoading}
               >
                 {isSignUp 
                   ? 'Already have an account? Sign in'

@@ -24,8 +24,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function checkUser() {
     try {
+      console.log('checkUser: starting...');
       const user = await authApi.getCurrentUser();
+      console.log('checkUser: completed, user:', user);
       setUser(user);
+    } catch (error) {
+      console.error('checkUser: error:', error);
     } finally {
       setLoading(false);
     }

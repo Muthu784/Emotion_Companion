@@ -8,7 +8,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { getEmotionColor } from '@/lib/emotion-detection'
 
-// Define the EmotionEntry type locally if not exported from supabase
+
 interface EmotionEntry {
   id: string;
   userId: string;
