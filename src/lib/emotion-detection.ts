@@ -25,16 +25,35 @@ export interface EmotionResult {
 
 export async function detectEmotion(text: string): Promise<EmotionResult> {
   try {
-    const response = await api.emotions.analyze(text)
-    
+    // Input Validation
+    if (!text || text.trim().length === 0) {
+      throw new Error('Please enter some text to analyze.');
+    }
+
+    if (text.length > 3000) {
+      throw new Error('Text is too long. Please limit to 3000 characters.');
+    }
+
+    const response = await api.emotions.analyze(text);
+
+    // Validate Response 
+    if (!response.emotion || response.confidence) {
+      throw new Error('Invalid response from emotion analysis service.');
+    }
+
     return {
       emotion: response.emotion as EmotionType,
       confidence: response.confidence,
-      allScores: response.scores
-    }
+      allScores: response.scores || []
+    };
   } catch (error: any) {
-    console.error('Error detecting emotion:', error?.response?.data || error)
-    throw new Error('Failed to analyze emotion. Please try again.')
+    console.error('Error detecting emotion:', error);
+
+    if (error.message.includes('service unavailable') || error.message.includes('Network Error')) {
+      throw new Error('Emotion analysis service is currently unavailable. Please try again later.');
+    }
+
+    throw new Error(error.message || 'Failed to analyze emotion. Please try again.');
   }
 }
 

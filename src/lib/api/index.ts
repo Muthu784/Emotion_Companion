@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { User } from './auth';
 
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Helper function to get headers with auth token
@@ -8,6 +9,7 @@ const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
   return {
     Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
   };
 };
 
@@ -45,11 +47,17 @@ export const api = {
         const response = await axios.post(
           `${API_URL}/analyze`,
           { text },
-          { headers: getAuthHeaders() }
+          { 
+            headers: getAuthHeaders(),
+            timeout: 10000 // Add timeout
+          }
         );
         return response.data;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to analyze emotion:', error);
+        if (error.response?.status === 404) {
+          throw new Error('Emotion analysis service unavailable');
+        }
         throw error;
       }
     },
