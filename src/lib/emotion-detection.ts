@@ -36,8 +36,8 @@ export async function detectEmotion(text: string): Promise<EmotionResult> {
 
     const response = await api.emotions.analyze(text);
 
-    // Validate Response 
-    if (!response.emotion || response.confidence) {
+    // Validate Response - FIXED: removed incorrect validation
+    if (!response.emotion || !response.confidence) {
       throw new Error('Invalid response from emotion analysis service.');
     }
 

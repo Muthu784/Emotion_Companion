@@ -1,8 +1,7 @@
 import axios from 'axios';
 import { User } from './auth';
 
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.API_URL || 'http://localhost:5000/api';
 
 // Helper function to get headers with auth token
 const getAuthHeaders = () => {
@@ -32,11 +31,12 @@ export interface ChatMessage {
 
 export interface Recommendation {
   id: string;
-  type: 'movie' | 'book' | 'music';
+  type: 'movie' | 'book' | 'music' | 'activity' | 'exercise' | 'resource';
   title: string;
   description?: string;
   emotion: string;
   url?: string;
+  tags?: string[];
 }
 
 export const api = {
@@ -49,7 +49,7 @@ export const api = {
           { text },
           { 
             headers: getAuthHeaders(),
-            timeout: 10000 // Add timeout
+            timeout: 30000 // Increased timeout for AI processing
           }
         );
         return response.data;
@@ -66,9 +66,12 @@ export const api = {
       try {
         const response = await axios.get(
           `${API_URL}/history`,
-          { headers: getAuthHeaders() }
+          { 
+            headers: getAuthHeaders(),
+            timeout: 10000
+          }
         );
-        return response.data;
+        return response.data.data || response.data; // Handle both response formats
       } catch (error) {
         console.error('Failed to fetch emotion history:', error);
         return [];
@@ -80,9 +83,12 @@ export const api = {
         const response = await axios.post(
           `${API_URL}/AddEmotion`,
           data,
-          { headers: getAuthHeaders() }
+          { 
+            headers: getAuthHeaders(),
+            timeout: 10000
+          }
         );
-        return response.data;
+        return response.data.data || response.data; // Handle both response formats
       } catch (error) {
         console.error('Failed to add emotion:', error);
         return null;
@@ -96,7 +102,10 @@ export const api = {
       try {
         const response = await axios.get(
           `${API_URL}/messages`,
-          { headers: getAuthHeaders() }
+          { 
+            headers: getAuthHeaders(),
+            timeout: 10000
+          }
         );
         return response.data;
       } catch (error) {
@@ -110,7 +119,10 @@ export const api = {
         const response = await axios.post(
           `${API_URL}/send`,
           { content },
-          { headers: getAuthHeaders() }
+          { 
+            headers: getAuthHeaders(),
+            timeout: 10000
+          }
         );
         return response.data;
       } catch (error) {
@@ -126,7 +138,10 @@ export const api = {
       try {
         const response = await axios.get(
           `${API_URL}/getRecommendations?emotion=${emotion}`,
-          { headers: getAuthHeaders() }
+          { 
+            headers: getAuthHeaders(),
+            timeout: 10000
+          }
         );
         return response.data;
       } catch (error) {
