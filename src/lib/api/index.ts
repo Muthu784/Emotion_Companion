@@ -43,35 +43,58 @@ export const api = {
   // Emotion related endpoints
   emotions: {
     async analyze(text: string): Promise<{ emotion: string; confidence: number; scores: Array<{ label: string; score: number }> }> {
+      if (!text?.trim()) {
+        throw new Error('Please enter some text to analyze.');
+      }
+
       try {
         const response = await axios.post(
-          `${API_URL}/analyze`,
+          `${API_URL}/emotions/analyze`,
           { text },
           { 
             headers: getAuthHeaders(),
             timeout: 30000 // Increased timeout for AI processing
           }
         );
+        
+        if (!response.data || !response.data.emotion || typeof response.data.confidence !== 'number') {
+          throw new Error('Invalid response format from emotion analysis service');
+        }
+        
         return response.data;
       } catch (error: any) {
         console.error('Failed to analyze emotion:', error);
-        if (error.response?.status === 404) {
-          throw new Error('Emotion analysis service unavailable');
+        
+        if (!error.response) {
+          throw new Error('Network error. Please check your connection.');
         }
-        throw error;
+        
+        switch (error.response.status) {
+          case 400:
+            throw new Error('Invalid input. Please try again with different text.');
+          case 401:
+            throw new Error('Authentication required. Please log in again.');
+          case 404:
+            throw new Error('Emotion analysis service not found.');
+          case 500:
+            throw new Error('The emotion analysis service is currently experiencing issues. Please try again later.');
+          default:
+            throw new Error('An unexpected error occurred. Please try again later.');
+        }
       }
     },
 
-    async getHistory(): Promise<EmotionData[]> {
+    async getHistory(params?: { startDate?: string; endDate?: string }): Promise<EmotionData[]> {
       try {
         const response = await axios.get(
-          `${API_URL}/history`,
+          `${API_URL}/emotions/history`,
           { 
             headers: getAuthHeaders(),
+            params,
             timeout: 10000
           }
         );
-        return response.data.data || response.data; // Handle both response formats
+        return response.data.data || response.data;
       } catch (error) {
         console.error('Failed to fetch emotion history:', error);
         return [];
@@ -81,14 +104,14 @@ export const api = {
     async addEmotion(data: Omit<EmotionData, 'id' | 'userId' | 'timestamp'>): Promise<EmotionData | null> {
       try {
         const response = await axios.post(
-          `${API_URL}/AddEmotion`,
+          `${API_URL}/emotions/add`,
           data,
           { 
             headers: getAuthHeaders(),
             timeout: 10000
           }
         );
-        return response.data.data || response.data; // Handle both response formats
+        return response.data.data || response.data;
       } catch (error) {
         console.error('Failed to add emotion:', error);
         return null;
@@ -134,18 +157,39 @@ export const api = {
 
   // Recommendations related endpoints
   recommendations: {
-    async getRecommendations(emotion: string): Promise<Recommendation[]> {
+    async getRecommendations(emotion: string, types?: Array<'movie' | 'book' | 'music' | 'activity'>): Promise<Recommendation[]> {
       try {
         const response = await axios.get(
-          `${API_URL}/getRecommendations?emotion=${emotion}`,
+          `${API_URL}/recommendations`,
           { 
             headers: getAuthHeaders(),
+            params: {
+              emotion,
+              types: types?.join(',')
+            },
             timeout: 10000
           }
         );
-        return response.data;
+        return response.data.data || response.data;
       } catch (error) {
         console.error('Failed to fetch recommendations:', error);
+        return [];
+      }
+    },
+
+    async getRandom(count: number = 5): Promise<Recommendation[]> {
+      try {
+        const response = await axios.get(
+          `${API_URL}/recommendations/random`,
+          { 
+            headers: getAuthHeaders(),
+            params: { count },
+            timeout: 10000
+          }
+        );
+        return response.data.data || response.data;
+      } catch (error) {
+        console.error('Failed to fetch random recommendations:', error);
         return [];
       }
     },

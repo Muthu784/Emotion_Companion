@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Send, Bot, User, Heart, Sparkles } from 'lucide-react'
-import { detectEmotion, getEmotionColor, getEmotionRecommendations, EmotionResult } from '@/lib/emotion-detection'
+import { getEmotionColor, EmotionType, EmotionResult } from '@/lib/emotion-detection'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
@@ -109,8 +109,13 @@ export default function Chat() {
     setMessages(prev => [...prev, userMessageObj])
 
     try {
-      // Detect emotion
-      const emotionResult = await detectEmotion(userMessage)
+      // Analyze emotion using API
+      const emotionResponse = await api.emotions.analyze(userMessage)
+      const emotionResult: EmotionResult = {
+        emotion: emotionResponse.emotion as EmotionType,
+        confidence: emotionResponse.confidence,
+        allScores: emotionResponse.scores
+      }
       
       // Update user message with emotion
       userMessageObj.emotion = emotionResult
@@ -135,23 +140,41 @@ export default function Chat() {
 
       // Show recommendations if confidence is high
       if (emotionResult.confidence > 0.7) {
-        const recommendations = getEmotionRecommendations(emotionResult.emotion)
-        toast({
-          title: "New recommendations available!",
-          description: `Based on your ${emotionResult.emotion}, I have some suggestions for you.`,
-        })
+        // Fetch recommendations from API
+        const recommendations = await api.recommendations.getRecommendations(emotionResult.emotion)
+        if (recommendations.length > 0) {
+          toast({
+            title: "New recommendations available!",
+            description: `Based on your ${emotionResult.emotion}, I have some suggestions for you.`,
+          })
+        }
       }
 
-    } catch (error) {
-      console.error('Error processing message:', error)
+    } catch (error: any) {
+      console.error('Error processing message:', error);
+      
+      // Remove the failed message from the chat
+      setMessages(prev => prev.filter(msg => msg.id !== userMessageObj.id));
+      
+      // Show a more specific error message to the user
       toast({
         title: "Error",
-        description: "Sorry, I couldn't process your message. Please try again.",
+        description: error.message || "Sorry, I couldn't process your message. Please try again.",
         variant: "destructive"
-      })
+      });
+
+      // Add an error message from the bot
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: "I'm having trouble analyzing emotions right now. Could you try rephrasing your message or try again later?",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+
     } finally {
-      setIsLoading(false)
-      setIsModelLoading(false)
+      setIsLoading(false);
+      setIsModelLoading(false);
     }
   }
 

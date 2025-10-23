@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Music, Book, Film, Heart, Sparkles, RefreshCw } from 'lucide-react'
-import { getEmotionRecommendations, getEmotionColor } from '@/lib/emotion-detection'
+import { EmotionType, getEmotionColor } from '@/lib/emotion-detection'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -54,7 +54,7 @@ export default function Recommendations() {
     }
   }
 
-  const recommendations = getEmotionRecommendations(selectedEmotion as any)
+  const recommendations = (selectedEmotion as any)
 
   const RecommendationCard = ({ title, type, icon: Icon }: { title: string; type: 'songs' | 'books' | 'movies'; icon: any }) => (
     <Card className="gradient-card border-border/20 shadow-card hover:shadow-glow transition-emotion">
