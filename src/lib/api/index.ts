@@ -94,9 +94,20 @@ export const api = {
             timeout: 10000
           }
         );
-        return response.data.data || response.data;
+        
+        const data = response.data.data || response.data;
+        
+        // Check if we have valid history data
+        if (Array.isArray(data) && data.length > 0 && data[0]?.emotion) {
+          return data;
+        }
+        
+        return [];
       } catch (error) {
-        console.error('Failed to fetch emotion history:', error);
+        // Don't log error if it's just a 404 (no history found)
+        if (axios.isAxiosError(error) && error.response?.status !== 404) {
+          console.error('Failed to fetch emotion history:', error);
+        }
         return [];
       }
     },

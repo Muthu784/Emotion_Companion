@@ -33,7 +33,7 @@ export default function Dashboard() {
     try {
       const entries = await api.emotions.getHistory()
 
-      if (entries) {
+      if (entries && Array.isArray(entries) && entries.length > 0) {
         setRecentEntries(entries.slice(0, 5))
         
         // Process data for charts
@@ -49,9 +49,16 @@ export default function Dashboard() {
         }))
 
         setEmotionData(chartData)
+      } else {
+        // Initialize empty states when no history exists
+        setRecentEntries([])
+        setEmotionData([])
       }
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
+      // Silently handle the error and set empty states
+      setRecentEntries([])
+      setEmotionData([])
+      console.debug('No emotion history found:', error)
     } finally {
       setLoading(false)
     }
