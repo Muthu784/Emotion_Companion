@@ -30,8 +30,30 @@ export default function Chat() {
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isModelLoading, setIsModelLoading] = useState(false)
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
+
+  useEffect(() => {
+    // Check if the model is ready on first load
+    const checkModelStatus = async () => {
+      try {
+        await api.emotions.analyze("test");
+        setIsFirstLoad(false);
+      } catch (error: any) {
+        if (error.code === 'MODEL_NOT_INITIALIZED') {
+          toast({
+            title: "Initializing",
+            description: "The emotion analysis model is loading for the first time. This may take a moment.",
+          });
+        }
+      }
+    };
+    
+    if (isFirstLoad) {
+      checkModelStatus();
+    }
+  }, [isFirstLoad, toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -91,6 +113,47 @@ export default function Chat() {
     return emotionResponses[Math.floor(Math.random() * emotionResponses.length)]
   }
 
+  const analyzeWithRetry = async (text: string, maxRetries = 3, initialDelay = 1000) => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await api.emotions.analyze(text);
+        return response;
+      } catch (error: any) {
+        lastError = error;
+        console.log(`Attempt ${attempt} failed:`, error.message);
+
+        // Don't retry on these errors
+        if (error.message.includes('Invalid input') ||
+            error.message.includes('session has expired') ||
+            error.message.includes('Please enter some text')) {
+          throw error;
+        }
+
+        // Determine if we should retry
+        const isRetryableError = 
+          error.message.includes('temporarily unavailable') ||
+          error.message.includes('timed out') ||
+          error.message.includes('overloaded') ||
+          error.message.includes('initializing') ||
+          error.message.includes('Too many requests');
+
+        if (!isRetryableError || attempt === maxRetries) {
+          break;
+        }
+
+        // Exponential backoff with jitter
+        const delay = initialDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
+        console.log(`Retrying in ${Math.round(delay)}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    // If we've exhausted all retries, throw the last error
+    throw lastError || new Error('Failed to analyze emotion after multiple attempts');
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return
 
@@ -109,8 +172,8 @@ export default function Chat() {
     setMessages(prev => [...prev, userMessageObj])
 
     try {
-      // Analyze emotion using API
-      const emotionResponse = await api.emotions.analyze(userMessage)
+      // Analyze emotion using API with retry
+      const emotionResponse = await analyzeWithRetry(userMessage)
       const emotionResult: EmotionResult = {
         emotion: emotionResponse.emotion as EmotionType,
         confidence: emotionResponse.confidence,

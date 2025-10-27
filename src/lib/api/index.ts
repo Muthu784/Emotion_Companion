@@ -47,39 +47,80 @@ export const api = {
         throw new Error('Please enter some text to analyze.');
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
       try {
         const response = await axios.post(
           `${API_URL}/emotions/analyze`,
           { text },
           { 
             headers: getAuthHeaders(),
-            timeout: 30000 // Increased timeout for AI processing
+            signal: controller.signal,
+            validateStatus: (status) => status === 200, // Only treat 200 as success
           }
         );
         
-        if (!response.data || !response.data.emotion || typeof response.data.confidence !== 'number') {
+        clearTimeout(timeoutId);
+
+        // Validate response structure
+        if (!response.data) {
+          throw new Error('Empty response from emotion analysis service');
+        }
+
+        const { emotion, confidence, scores } = response.data;
+        
+        if (!emotion || typeof confidence !== 'number' || !Array.isArray(scores)) {
+          console.error('Invalid response format:', response.data);
           throw new Error('Invalid response format from emotion analysis service');
         }
+
+        // Validate each score object
+        if (!scores.every(score => 
+          typeof score.label === 'string' && 
+          typeof score.score === 'number' &&
+          score.score >= 0 && 
+          score.score <= 1
+        )) {
+          throw new Error('Invalid score format in response');
+        }
         
-        return response.data;
+        return {
+          emotion: emotion.toLowerCase(),
+          confidence,
+          scores: scores.map(s => ({
+            label: s.label.toLowerCase(),
+            score: s.score
+          }))
+        };
       } catch (error: any) {
+        clearTimeout(timeoutId);
         console.error('Failed to analyze emotion:', error);
         
+        if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+          throw new Error('Request timed out. The service might be overloaded, please try again.');
+        }
+
         if (!error.response) {
-          throw new Error('Network error. Please check your connection.');
+          throw new Error('Network error. Please check your connection and try again.');
         }
         
         switch (error.response.status) {
           case 400:
             throw new Error('Invalid input. Please try again with different text.');
           case 401:
-            throw new Error('Authentication required. Please log in again.');
+            throw new Error('Your session has expired. Please log in again.');
           case 404:
-            throw new Error('Emotion analysis service not found.');
+            throw new Error('Emotion analysis service is not available. Please try again later.');
+          case 429:
+            throw new Error('Too many requests. Please wait a moment before trying again.');
           case 500:
-            throw new Error('The emotion analysis service is currently experiencing issues. Please try again later.');
+            if (error.response.data?.error?.includes('model')) {
+              throw new Error('The AI model is currently initializing. Please try again in a moment.');
+            }
+            throw new Error('The emotion analysis service is temporarily unavailable. Please try again later.');
           default:
-            throw new Error('An unexpected error occurred. Please try again later.');
+            throw new Error('An unexpected error occurred. Please try again in a few moments.');
         }
       }
     },
