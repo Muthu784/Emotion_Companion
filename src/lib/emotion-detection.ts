@@ -5,7 +5,8 @@ export const emotionLabels = {
   anger: 'anger',
   fear: 'fear',
   love: 'love',
-  surprise: 'surprise'
+  surprise: 'surprise',
+  neutral: 'neutral'
 } as const
 
 export type EmotionType = keyof typeof emotionLabels
@@ -30,7 +31,8 @@ export function getEmotionColor(emotion: EmotionType): string {
     surprise: 'emotion-excited',
     anger: 'emotion-angry',
     fear: 'emotion-fear',
-    sadness: 'emotion-sad'
+    sadness: 'emotion-sad',
+    neutral: 'emotion-neutral'
   }
   
   return colorMap[emotion] || 'emotion-neutral'

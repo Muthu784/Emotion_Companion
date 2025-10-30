@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Music, Book, Film, Heart, Sparkles, RefreshCw } from 'lucide-react'
 import { EmotionType, getEmotionColor } from '@/lib/emotion-detection'
-import { api } from '@/lib/api'
+import { api, Recommendation } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 
 interface EmotionSummary {
@@ -15,15 +15,65 @@ interface EmotionSummary {
   percentage: number
 }
 
+interface GroupedRecommendations {
+  songs: Recommendation[]
+  books: Recommendation[]
+  movies: Recommendation[]
+}
+
 export default function Recommendations() {
   const { user } = useAuth()
   const [emotionSummary, setEmotionSummary] = useState<EmotionSummary[]>([])
   const [selectedEmotion, setSelectedEmotion] = useState<string>('joy')
   const [loading, setLoading] = useState(true)
+  const [recommendations, setRecommendations] = useState<GroupedRecommendations>({
+    songs: [],
+    books: [],
+    movies: []
+  })
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
 
   useEffect(() => {
     loadEmotionSummary()
   }, [])
+
+  useEffect(() => {
+    if (selectedEmotion) {
+      loadRecommendations()
+    }
+  }, [selectedEmotion])
+
+  const loadRecommendations = async () => {
+    setLoadingRecommendations(true)
+    try {
+      const recommendationData = await api.recommendations.getRecommendations(
+        selectedEmotion,
+        ['music', 'book', 'movie']
+      )
+
+      // Group recommendations by type
+      const grouped = recommendationData.reduce((acc, item) => {
+        switch (item.type) {
+          case 'music':
+            acc.songs.push(item)
+            break
+          case 'book':
+            acc.books.push(item)
+            break
+          case 'movie':
+            acc.movies.push(item)
+            break
+        }
+        return acc
+      }, { songs: [], books: [], movies: [] } as GroupedRecommendations)
+
+      setRecommendations(grouped)
+    } catch (error) {
+      console.error('Error loading recommendations:', error)
+    } finally {
+      setLoadingRecommendations(false)
+    }
+  }
 
   const loadEmotionSummary = async () => {
     try {
@@ -54,8 +104,6 @@ export default function Recommendations() {
     }
   }
 
-  const recommendations = (selectedEmotion as any)
-
   const RecommendationCard = ({ title, type, icon: Icon }: { title: string; type: 'songs' | 'books' | 'movies'; icon: any }) => (
     <Card className="gradient-card border-border/20 shadow-card hover:shadow-glow transition-emotion">
       <CardHeader>
@@ -70,10 +118,24 @@ export default function Recommendations() {
       <CardContent className="space-y-3">
         {recommendations[type].map((item, index) => (
           <div
-            key={index}
+            key={item.id}
             className="p-3 rounded-lg glass border border-border/20 hover:border-primary/50 transition-emotion"
           >
-            <p className="text-card-foreground font-medium">{item}</p>
+            <div className="space-y-1">
+              <p className="text-card-foreground font-medium">{item.title}</p>
+              {item.description && (
+                <p className="text-muted-foreground text-sm">{item.description}</p>
+              )}
+              {item.tags && item.tags.length > 0 && (
+                <div className="flex gap-2 flex-wrap mt-2">
+                  {item.tags.map(tag => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </CardContent>
@@ -169,10 +231,13 @@ export default function Recommendations() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={loadEmotionSummary}
+                    onClick={() => {
+                      loadEmotionSummary()
+                      loadRecommendations()
+                    }}
                     className="transition-emotion"
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw className={`w-4 h-4 mr-2 ${loadingRecommendations ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
                 </div>
@@ -181,15 +246,15 @@ export default function Recommendations() {
                   <TabsList className="grid w-full grid-cols-3 mb-6">
                     <TabsTrigger value="songs" className="flex items-center space-x-2">
                       <Music className="w-4 h-4" />
-                      <span>Songs</span>
+                      <span>Songs ({recommendations.songs.length})</span>
                     </TabsTrigger>
                     <TabsTrigger value="books" className="flex items-center space-x-2">
                       <Book className="w-4 h-4" />
-                      <span>Books</span>
+                      <span>Books ({recommendations.books.length})</span>
                     </TabsTrigger>
                     <TabsTrigger value="movies" className="flex items-center space-x-2">
                       <Film className="w-4 h-4" />
-                      <span>Movies</span>
+                      <span>Movies ({recommendations.movies.length})</span>
                     </TabsTrigger>
                   </TabsList>
 

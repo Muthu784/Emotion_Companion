@@ -10,6 +10,13 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 
+interface AIServiceResponse {
+  response: string;
+  emotion?: string;
+  suggested_emotion?: string;
+  timestamp: string;
+}
+
 interface ChatMessage {
   id: string
   type: 'user' | 'bot'
@@ -30,30 +37,10 @@ export default function Chat() {
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isModelLoading, setIsModelLoading] = useState(false)
-  const [isFirstLoad, setIsFirstLoad] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
-  useEffect(() => {
-    // Check if the model is ready on first load
-    const checkModelStatus = async () => {
-      try {
-        await api.emotions.analyze("test");
-        setIsFirstLoad(false);
-      } catch (error: any) {
-        if (error.code === 'MODEL_NOT_INITIALIZED') {
-          toast({
-            title: "Initializing",
-            description: "The emotion analysis model is loading for the first time. This may take a moment.",
-          });
-        }
-      }
-    };
-    
-    if (isFirstLoad) {
-      checkModelStatus();
-    }
-  }, [isFirstLoad, toast]);
+  // Removed model initialization check - now handled by backend
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -75,83 +62,12 @@ export default function Chat() {
     }
   }
 
-  const generateResponse = (emotion: EmotionResult): string => {
-    const responses = {
-      joy: [
-        "I can sense your happiness! That's wonderful. What's bringing you such joy today?",
-        "Your positive energy is contagious! It sounds like you're having a great time.",
-        "I love hearing about moments of joy. Would you like some recommendations to keep this feeling going?"
-      ],
-      love: [
-        "There's so much warmth in your message. Love is a beautiful emotion to experience.",
-        "I can feel the affection in your words. Love in all its forms is truly special.",
-        "Your heart seems full right now. That's a precious feeling to cherish."
-      ],
-      sadness: [
-        "I hear that you're going through a difficult time. It's okay to feel sad - your emotions are valid.",
-        "Sometimes sadness helps us process important experiences. I'm here to listen.",
-        "Thank you for sharing something so personal. Would you like to talk more about what you're feeling?"
-      ],
-      anger: [
-        "I can sense some frustration in your words. Anger often signals that something important to you has been affected.",
-        "It sounds like you're dealing with something challenging. Your feelings are completely understandable.",
-        "Sometimes anger is a sign that we need to set boundaries or make changes. What do you think might help?"
-      ],
-      fear: [
-        "I notice some worry or concern in your message. It takes courage to share when we're feeling afraid.",
-        "Fear can be overwhelming, but you're not alone. What's been on your mind lately?",
-        "It's natural to feel uncertain sometimes. Would it help to talk through what's worrying you?"
-      ],
-      surprise: [
-        "Something unexpected seems to have happened! I'd love to hear more about it.",
-        "Life has a way of surprising us, doesn't it? How are you processing this new development?",
-        "Surprises can bring such interesting emotions. What's been the most surprising part?"
-      ]
-    }
+  // Removed local response generation - now handled by backend
 
-    const emotionResponses = responses[emotion.emotion] || responses.joy
-    return emotionResponses[Math.floor(Math.random() * emotionResponses.length)]
-  }
-
-  const analyzeWithRetry = async (text: string, maxRetries = 3, initialDelay = 1000) => {
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await api.emotions.analyze(text);
-        return response;
-      } catch (error: any) {
-        lastError = error;
-        console.log(`Attempt ${attempt} failed:`, error.message);
-
-        // Don't retry on these errors
-        if (error.message.includes('Invalid input') ||
-            error.message.includes('session has expired') ||
-            error.message.includes('Please enter some text')) {
-          throw error;
-        }
-
-        // Determine if we should retry
-        const isRetryableError = 
-          error.message.includes('temporarily unavailable') ||
-          error.message.includes('timed out') ||
-          error.message.includes('overloaded') ||
-          error.message.includes('initializing') ||
-          error.message.includes('Too many requests');
-
-        if (!isRetryableError || attempt === maxRetries) {
-          break;
-        }
-
-        // Exponential backoff with jitter
-        const delay = initialDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
-        console.log(`Retrying in ${Math.round(delay)}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-
-    // If we've exhausted all retries, throw the last error
-    throw lastError || new Error('Failed to analyze emotion after multiple attempts');
+  // Simple error handling for API calls
+  const handleAPIError = (error: any) => {
+    console.error('API Error:', error);
+    throw error;
   };
 
   const handleSendMessage = async () => {
@@ -172,8 +88,18 @@ export default function Chat() {
     setMessages(prev => [...prev, userMessageObj])
 
     try {
-      // Analyze emotion using API with retry
-      const emotionResponse = await analyzeWithRetry(userMessage)
+      // Helper function to validate emotion
+      const validateEmotion = (emotion: string): EmotionType => {
+        const validEmotions = ['joy', 'sadness', 'anger', 'fear', 'love', 'surprise', 'neutral'] as const;
+        const normalizedEmotion = emotion.toLowerCase();
+        if (validEmotions.includes(normalizedEmotion as EmotionType)) {
+          return normalizedEmotion as EmotionType;
+        }
+        return 'neutral' as EmotionType;
+      };
+
+      // Get emotion analysis from backend
+      const emotionResponse = await api.emotions.analyze(userMessage).catch(handleAPIError)
       const emotionResult: EmotionResult = {
         emotion: emotionResponse.emotion as EmotionType,
         confidence: emotionResponse.confidence,
@@ -186,30 +112,42 @@ export default function Chat() {
         msg.id === userMessageObj.id ? { ...msg, emotion: emotionResult } : msg
       ))
 
-      // Save to database
-      await saveEmotionEntry(userMessage, emotionResult)
-
-      // Generate bot response
-      const botResponse = generateResponse(emotionResult)
+      // Get AI response from backend
+      console.log('Sending message to AI service:', userMessage);
+      const aiResponse: AIServiceResponse = await api.chat.sendMessage(userMessage)
+      console.log('Received AI response:', aiResponse);
       
+      // Create bot message
       const botMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: Date.now().toString(),
         type: 'bot',
-        content: botResponse,
-        timestamp: new Date()
+        content: aiResponse.response,
+        timestamp: new Date(aiResponse.timestamp || Date.now()),
+        ...(aiResponse.suggested_emotion && {
+          emotion: {
+            emotion: validateEmotion(aiResponse.suggested_emotion),
+            confidence: 1,
+            allScores: []
+          }
+        })
       }
-
+      
+      // Add bot message to chat
       setMessages(prev => [...prev, botMessage])
+      console.log('Added bot message:', botMessage);
 
       // Show recommendations if confidence is high
       if (emotionResult.confidence > 0.7) {
-        // Fetch recommendations from API
-        const recommendations = await api.recommendations.getRecommendations(emotionResult.emotion)
-        if (recommendations.length > 0) {
-          toast({
-            title: "New recommendations available!",
-            description: `Based on your ${emotionResult.emotion}, I have some suggestions for you.`,
-          })
+        try {
+          const recommendations = await api.recommendations.getRecommendations(emotionResult.emotion)
+          if (recommendations.length > 0) {
+            toast({
+              title: "New recommendations available!",
+              description: `Based on your ${emotionResult.emotion}, I have some suggestions for you.`,
+            })
+          }
+        } catch (recError) {
+          console.error('Failed to fetch recommendations:', recError)
         }
       }
 
@@ -219,21 +157,40 @@ export default function Chat() {
       // Remove the failed message from the chat
       setMessages(prev => prev.filter(msg => msg.id !== userMessageObj.id));
       
-      // Show a more specific error message to the user
+      // Extract error message based on different possible error structures
+      let errorMessage = "Sorry, I couldn't process your message. Please try again.";
+      let title = "Error";
+      
+      if (error.response) {
+        const status = error.response.status;
+        if (status === 401) {
+          errorMessage = "Please log in to continue the conversation";
+          title = "Authentication Required";
+        } else {
+          errorMessage = 
+            error.response.data.error || 
+            error.response.data.message || 
+            (typeof error.response.data === 'string' ? error.response.data : errorMessage);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Show error toast to user
       toast({
-        title: "Error",
-        description: error.message || "Sorry, I couldn't process your message. Please try again.",
+        title: title,
+        description: errorMessage,
         variant: "destructive"
       });
 
       // Add an error message from the bot
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+      const botErrorMessage: ChatMessage = {
+        id: Date.now().toString(),
         type: 'bot',
         content: "I'm having trouble analyzing emotions right now. Could you try rephrasing your message or try again later?",
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, botErrorMessage]);
 
     } finally {
       setIsLoading(false);

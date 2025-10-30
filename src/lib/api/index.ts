@@ -1,13 +1,41 @@
 import axios from 'axios';
 import { User } from './auth';
 
-const API_URL = import.meta.env.API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Create axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_URL,
+  timeout: 30000,
+  withCredentials: true, // Important for cookies
+});
+
+// Add request interceptor to automatically add auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Log the request URL for debugging
+    console.debug('API Request:', {
+      method: config.method?.toUpperCase(),
+      url: `${config.baseURL}${config.url}`,
+      params: config.params
+    });
+    return config;
+  },
+  (error) => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
 
 // Helper function to get headers with auth token
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization: token ? `Bearer ${token}` : undefined,
     'Content-Type': 'application/json',
   };
 };
@@ -42,49 +70,31 @@ export interface Recommendation {
 export const api = {
   // Emotion related endpoints
   emotions: {
-    async analyze(text: string): Promise<{ emotion: string; confidence: number; scores: Array<{ label: string; score: number }> }> {
+    async analyze(text: string): Promise<{ 
+      emotion: string; 
+      confidence: number; 
+      scores: Array<{ label: string; score: number }> 
+    }> {
       if (!text?.trim()) {
         throw new Error('Please enter some text to analyze.');
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
       try {
-        const response = await axios.post(
-          `${API_URL}/emotions/analyze`,
+        const response = await axiosInstance.post(
+          '/analyze',
           { text },
           { 
             headers: getAuthHeaders(),
-            signal: controller.signal,
-            validateStatus: (status) => status === 200, // Only treat 200 as success
+            validateStatus: (status) => status === 200
           }
         );
-        
-        clearTimeout(timeoutId);
-
-        // Validate response structure
-        if (!response.data) {
-          throw new Error('Empty response from emotion analysis service');
-        }
 
         const { emotion, confidence, scores } = response.data;
         
         if (!emotion || typeof confidence !== 'number' || !Array.isArray(scores)) {
-          console.error('Invalid response format:', response.data);
           throw new Error('Invalid response format from emotion analysis service');
         }
 
-        // Validate each score object
-        if (!scores.every(score => 
-          typeof score.label === 'string' && 
-          typeof score.score === 'number' &&
-          score.score >= 0 && 
-          score.score <= 1
-        )) {
-          throw new Error('Invalid score format in response');
-        }
-        
         return {
           emotion: emotion.toLowerCase(),
           confidence,
@@ -94,59 +104,41 @@ export const api = {
           }))
         };
       } catch (error: any) {
-        clearTimeout(timeoutId);
-        console.error('Failed to analyze emotion:', error);
-        
-        if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
-          throw new Error('Request timed out. The service might be overloaded, please try again.');
+        if (error.response) {
+          switch (error.response.status) {
+            case 400:
+              throw new Error('Invalid input. Please try again with different text.');
+            case 401:
+              throw new Error('Your session has expired. Please log in again.');
+            case 404:
+              throw new Error('Emotion analysis service is not available.');
+            case 429:
+              throw new Error('Too many requests. Please wait a moment before trying again.');
+            default:
+              throw new Error('Failed to analyze emotion. Please try again later.');
+          }
         }
-
-        if (!error.response) {
-          throw new Error('Network error. Please check your connection and try again.');
-        }
-        
-        switch (error.response.status) {
-          case 400:
-            throw new Error('Invalid input. Please try again with different text.');
-          case 401:
-            throw new Error('Your session has expired. Please log in again.');
-          case 404:
-            throw new Error('Emotion analysis service is not available. Please try again later.');
-          case 429:
-            throw new Error('Too many requests. Please wait a moment before trying again.');
-          case 500:
-            if (error.response.data?.error?.includes('model')) {
-              throw new Error('The AI model is currently initializing. Please try again in a moment.');
-            }
-            throw new Error('The emotion analysis service is temporarily unavailable. Please try again later.');
-          default:
-            throw new Error('An unexpected error occurred. Please try again in a few moments.');
-        }
+        throw new Error('Network error. Please check your connection and try again.');
       }
     },
 
     async getHistory(params?: { startDate?: string; endDate?: string }): Promise<EmotionData[]> {
       try {
-        const response = await axios.get(
-          `${API_URL}/emotions/history`,
-          { 
-            headers: getAuthHeaders(),
-            params,
-            timeout: 10000
-          }
-        );
+        const response = await axiosInstance.get('/emotions/history', {
+          params,
+          headers: getAuthHeaders(),
+          withCredentials: true
+        });
         
         const data = response.data.data || response.data;
-        
-        // Check if we have valid history data
-        if (Array.isArray(data) && data.length > 0 && data[0]?.emotion) {
-          return data;
-        }
-        
-        return [];
+        return Array.isArray(data) ? data : [];
       } catch (error) {
-        // Don't log error if it's just a 404 (no history found)
-        if (axios.isAxiosError(error) && error.response?.status !== 404) {
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 401) {
+            throw new Error('Please log in to view your emotion history');
+          }
+          console.error('Failed to fetch emotion history:', error.response?.data);
+        } else {
           console.error('Failed to fetch emotion history:', error);
         }
         return [];
@@ -155,15 +147,12 @@ export const api = {
 
     async addEmotion(data: Omit<EmotionData, 'id' | 'userId' | 'timestamp'>): Promise<EmotionData | null> {
       try {
-        const response = await axios.post(
-          `${API_URL}/emotions/add`,
+        const response = await axiosInstance.post(
+          '/AddEmotion',
           data,
-          { 
-            headers: getAuthHeaders(),
-            timeout: 10000
-          }
+          { headers: getAuthHeaders() }
         );
-        return response.data.data || response.data;
+        return response.data;
       } catch (error) {
         console.error('Failed to add emotion:', error);
         return null;
@@ -173,73 +162,83 @@ export const api = {
 
   // Chat related endpoints
   chat: {
-    async getMessages(): Promise<ChatMessage[]> {
+    async sendMessage(message: string): Promise<{ 
+      response: string; 
+      emotion?: string; 
+      timestamp: string 
+    }> {
       try {
-        const response = await axios.get(
-          `${API_URL}/messages`,
+        const response = await axiosInstance.post(
+          '/aiService/chat',
+          { message },
           { 
             headers: getAuthHeaders(),
-            timeout: 10000
+            validateStatus: (status) => status >= 200 && status < 300
           }
         );
-        return response.data;
-      } catch (error) {
-        console.error('Failed to fetch chat messages:', error);
-        return [];
-      }
-    },
 
-    async sendMessage(content: string): Promise<ChatMessage | null> {
-      try {
-        const response = await axios.post(
-          `${API_URL}/send`,
-          { content },
-          { 
-            headers: getAuthHeaders(),
-            timeout: 10000
+        const responseData = response.data;
+        
+        return {
+          response: responseData.response || responseData.message || '',
+          emotion: responseData.emotion,
+          timestamp: responseData.timestamp || new Date().toISOString()
+        };
+      } catch (error: any) {
+        if (error.response) {
+          const status = error.response.status;
+          const message = error.response.data?.message || 'Failed to send message';
+          
+          if (status === 401) {
+            throw new Error('Please log in to continue');
+          } else if (status === 429) {
+            throw new Error('Too many requests. Please wait a moment.');
           }
-        );
-        return response.data;
-      } catch (error) {
-        console.error('Failed to send message:', error);
-        return null;
+          throw new Error(message);
+        }
+        throw new Error('Network error. Please check your connection.');
       }
     },
   },
 
   // Recommendations related endpoints
   recommendations: {
-    async getRecommendations(emotion: string, types?: Array<'movie' | 'book' | 'music' | 'activity'>): Promise<Recommendation[]> {
+    async getRecommendations(
+      emotion: string, 
+      types?: Array<'movie' | 'book' | 'music' | 'activity'>
+    ): Promise<Recommendation[]> {
       try {
-        const response = await axios.get(
-          `${API_URL}/recommendations`,
-          { 
-            headers: getAuthHeaders(),
-            params: {
-              emotion,
-              types: types?.join(',')
-            },
-            timeout: 10000
-          }
-        );
-        return response.data.data || response.data;
+        const response = await axiosInstance.get('/recommendations/by-emotion', {
+          params: {
+            emotion,
+            types: types?.join(',')
+          },
+          headers: getAuthHeaders(),
+          withCredentials: true
+        });
+        
+        const data = response.data.data || response.data;
+        return Array.isArray(data) ? data : [];
       } catch (error) {
-        console.error('Failed to fetch recommendations:', error);
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 401) {
+            throw new Error('Please log in to view recommendations');
+          }
+          console.error('Failed to fetch recommendations:', error.response?.data);
+        } else {
+          console.error('Failed to fetch recommendations:', error);
+        }
         return [];
       }
     },
 
     async getRandom(count: number = 5): Promise<Recommendation[]> {
       try {
-        const response = await axios.get(
-          `${API_URL}/recommendations/random`,
-          { 
-            headers: getAuthHeaders(),
-            params: { count },
-            timeout: 10000
-          }
-        );
-        return response.data.data || response.data;
+        const response = await axiosInstance.get('/recommendations/random', {
+          params: { count },
+          headers: getAuthHeaders()
+        });
+        return response.data.data || response.data || [];
       } catch (error) {
         console.error('Failed to fetch random recommendations:', error);
         return [];
